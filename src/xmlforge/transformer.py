@@ -3,7 +3,7 @@ XML Transformer module for transforming XML documents.
 """
 
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Dict, Optional, Union
 
 from lxml import etree
 
@@ -72,7 +72,12 @@ class XMLTransformer:
             raise FileNotFoundError(f"Input file not found: {input_file}")
 
         doc = etree.parse(str(input_file))
-        result = self.transform(doc, **params)
+        # Convert string params to proper XSLT parameters
+        if params:
+            xslt_params = {k: etree.XSLT.strparam(v) for k, v in params.items()}
+            result = self.transform(doc, **xslt_params)  # type: ignore[misc]
+        else:
+            result = self.transform(doc)
 
         if output_file:
             result.write(str(output_file), encoding="utf-8", xml_declaration=True)
@@ -96,7 +101,12 @@ class XMLTransformer:
         if not self.transform:
             raise ValueError("No XSLT stylesheet loaded")
 
-        return self.transform(element, **params)
+        # Convert string params to proper XSLT parameters
+        if params:
+            xslt_params = {k: etree.XSLT.strparam(v) for k, v in params.items()}
+            return self.transform(element, **xslt_params)  # type: ignore[misc]
+        else:
+            return self.transform(element)
 
     def add_namespace(
         self, element: etree._Element, namespace: str, prefix: Optional[str] = None
@@ -112,10 +122,18 @@ class XMLTransformer:
         Returns:
             The modified element.
         """
-        nsmap = element.nsmap.copy() if element.nsmap else {}
-        nsmap[prefix] = namespace
+        # Handle nsmap - filter out None keys
+        nsmap: Dict[str, str] = {}
+        if element.nsmap:
+            nsmap = {k: v for k, v in element.nsmap.items() if k is not None}
+        nsmap[prefix or ''] = namespace
 
-        new_element = etree.Element(element.tag, nsmap=nsmap, attrib=element.attrib)
+        # Convert attrib to proper string dict
+        attrib_dict: Dict[str, str] = {}
+        if element.attrib is not None:
+            attrib_dict = {str(k): str(v) for k, v in element.attrib.items()}
+
+        new_element = etree.Element(element.tag, nsmap=nsmap, attrib=attrib_dict)
         new_element.text = element.text
         new_element.tail = element.tail
 
