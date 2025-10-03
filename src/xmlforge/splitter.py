@@ -2,12 +2,13 @@
 XML Splitter module for splitting large XML files.
 """
 
-from pathlib import Path
 from typing import Iterator, Optional, Union
+from lxml import etree
+from pathlib import Path
+import logging
 import zipfile
 
-from lxml import etree
-
+logger = logging.getLogger(__name__)
 
 class XMLSplitter:
     """
@@ -89,7 +90,7 @@ class XMLSplitter:
 
         # Process all XML sources
         for xml_source, zip_ref in xml_sources:
-            print(f"Processing: {xml_source}")
+            logger.info(f"Processing: {xml_source}")
 
             if zip_ref:
                 # Stream from ZIP file
