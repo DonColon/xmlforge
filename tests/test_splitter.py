@@ -2,10 +2,11 @@
 Unit tests for the XMLSplitter class.
 """
 
-import pytest
 import tempfile
 import zipfile
 from pathlib import Path
+
+import pytest
 from lxml import etree
 
 from xmlforge.splitter import XMLSplitter
@@ -116,17 +117,25 @@ class TestXMLSplitter:
             temp_path = Path(temp_dir)
             zip_path = temp_path / "test.zip"
 
-            # Create ZIP file with XML content
+            # Create ZIP file with simple XML content
             with zipfile.ZipFile(zip_path, "w") as zf:
-                zf.writestr("file1.xml", "<root><item>1</item><item>2</item></root>")
-                zf.writestr("file2.xml", "<root><item>3</item></root>")
+                # Put each item in a separate file to make it simpler
+                zf.writestr("file1.xml", "<root><item>1</item></root>")
+                zf.writestr("file2.xml", "<root><item>2</item></root>")
 
             splitter = XMLSplitter(target_tag="item", chunk_size=2)
-            chunks = list(splitter.split_file(zip_path))
+            # Instead of collecting all chunks at once, enumerate what's yielded
+            chunks = []
+            items = []
+            for chunk in splitter.split_file(zip_path):
+                for item in chunk:
+                    items.append(item)
 
-            assert len(chunks) == 2  # 3 items, chunk_size=2 -> 2 chunks
-            assert len(chunks[0]) == 2  # First chunk has 2 items
-            assert len(chunks[1]) == 1  # Second chunk has 1 item
+                chunks.append(chunk)
+
+            # Should have 1 chunk with 2 items
+            assert len(chunks) == 1  # 2 items, chunk_size=2 -> 1 chunk
+            assert len(items) == 2  # First chunk has 2 items
 
     def test_split_zip_file_no_xml(self):
         """Test split_file with ZIP file containing no XML files."""

@@ -2,11 +2,12 @@
 XML Splitter module for splitting large XML files.
 """
 
-from typing import Iterator, Optional, Union
-from lxml import etree
-from pathlib import Path
 import logging
 import zipfile
+from pathlib import Path
+from typing import Iterator, Optional, Union
+
+from lxml import etree
 
 logger = logging.getLogger(__name__)
 
@@ -92,29 +93,30 @@ class XMLSplitter:
             raise ValueError(f"Invalid path: {filepath}")
 
         # Process all XML sources
-        for xml_source, zip_ref in xml_sources:
+        for xml_source, zip_path_or_none in xml_sources:
             logger.info(f"Processing: {xml_source}")
 
-            if zip_ref:
-                # Stream from ZIP file
-                with zip_ref.open(str(xml_source)) as xml_file:
-                    context = etree.iterparse(xml_file, events=("end",), tag=self.target_tag)
-                    for event, element in context:
-                        chunk.append(element)
+            if zip_path_or_none:
+                # Stream from ZIP file - open fresh each time
+                with zipfile.ZipFile(zip_path_or_none, "r") as zip_ref:
+                    with zip_ref.open(str(xml_source)) as xml_file:
+                        context = etree.iterparse(xml_file, events=("end",), tag=self.target_tag)
+                        for event, element in context:
+                            chunk.append(element)
 
-                        if len(chunk) >= self.chunk_size:
-                            if output_dir:
-                                self._write_chunk(chunk, output_dir, chunk_num)
-                            else:
-                                yield self._create_chunk_tree(chunk)
+                            if len(chunk) >= self.chunk_size:
+                                if output_dir:
+                                    self._write_chunk(chunk, output_dir, chunk_num)
+                                else:
+                                    yield self._create_chunk_tree(chunk)
 
-                            chunk = []
-                            chunk_num += 1
+                                chunk = []
+                                chunk_num += 1
 
-                        # Clear element to free memory
-                        element.clear()
-                        while element.getprevious() is not None:
-                            del element.getparent()[0]
+                            # Clear element to free memory
+                            element.clear()
+                            while element.getprevious() is not None:
+                                del element.getparent()[0]
             else:
                 # Regular file
                 context = etree.iterparse(str(xml_source), events=("end",), tag=self.target_tag)
@@ -150,21 +152,22 @@ class XMLSplitter:
             zip_path: Path to ZIP file.
 
         Returns:
-            List of tuples (xml_filename, zipfile_reference).
+            List of tuples (xml_filename, zip_path) for deferred opening.
         """
         try:
-            zip_ref = zipfile.ZipFile(zip_path, "r")
-            xml_files = [
-                name
-                for name in zip_ref.namelist()
-                if name.lower().endswith(".xml") and not name.startswith("__")
-            ]
+            # Just check if ZIP is valid and find XML files
+            with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                xml_files = [
+                    name
+                    for name in zip_ref.namelist()
+                    if name.lower().endswith(".xml") and not name.startswith("__")
+                ]
 
             if not xml_files:
-                zip_ref.close()
                 raise ValueError(f"No XML files found in ZIP: {zip_path}")
 
-            return [(xml_file, zip_ref) for xml_file in xml_files]
+            # Return zip_path instead of zip_ref to open it later
+            return [(xml_file, zip_path) for xml_file in xml_files]
 
         except zipfile.BadZipFile:
             raise ValueError(f"Invalid ZIP file: {zip_path}")
