@@ -10,6 +10,7 @@ import zipfile
 
 logger = logging.getLogger(__name__)
 
+
 class XMLSplitter:
     """
     A class for splitting large XML files into smaller chunks.
@@ -26,7 +27,7 @@ class XMLSplitter:
         target_tag: str,
         chunk_size: int = 1000,
         pattern: str = "*.xml",
-        recursive: bool = False
+        recursive: bool = False,
     ) -> None:
         """
         Initialize the XMLSplitter.
@@ -67,7 +68,7 @@ class XMLSplitter:
         chunk_num = 0
 
         # Determine source type and get XML sources
-        if filepath.is_file() and filepath.suffix.lower() == '.zip':
+        if filepath.is_file() and filepath.suffix.lower() == ".zip":
             # Handle ZIP file
             xml_sources = self._get_zip_xml_sources(filepath)
         elif filepath.is_file():
@@ -82,7 +83,9 @@ class XMLSplitter:
 
             if not xml_files:
                 search_type = "recursively" if self.recursive else "in directory"
-                raise ValueError(f"No files matching '{self.pattern}' found {search_type}: {filepath}")
+                raise ValueError(
+                    f"No files matching '{self.pattern}' found {search_type}: {filepath}"
+                )
 
             xml_sources = [(f, None) for f in xml_files]
         else:
@@ -150,9 +153,12 @@ class XMLSplitter:
             List of tuples (xml_filename, zipfile_reference).
         """
         try:
-            zip_ref = zipfile.ZipFile(zip_path, 'r')
-            xml_files = [name for name in zip_ref.namelist()
-                        if name.lower().endswith('.xml') and not name.startswith('__')]
+            zip_ref = zipfile.ZipFile(zip_path, "r")
+            xml_files = [
+                name
+                for name in zip_ref.namelist()
+                if name.lower().endswith(".xml") and not name.startswith("__")
+            ]
 
             if not xml_files:
                 zip_ref.close()
