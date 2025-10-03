@@ -75,7 +75,7 @@ class XMLTransformer:
         # Convert string params to proper XSLT parameters
         if params:
             xslt_params = {k: etree.XSLT.strparam(v) for k, v in params.items()}
-            result = self.transform(doc, **xslt_params)  # type: ignore[misc]
+            result = self.transform(doc, **xslt_params)  # type: ignore[arg-type]
         else:
             result = self.transform(doc)
 
@@ -104,7 +104,7 @@ class XMLTransformer:
         # Convert string params to proper XSLT parameters
         if params:
             xslt_params = {k: etree.XSLT.strparam(v) for k, v in params.items()}
-            return self.transform(element, **xslt_params)  # type: ignore[misc]
+            return self.transform(element, **xslt_params)  # type: ignore[arg-type]
         else:
             return self.transform(element)
 
