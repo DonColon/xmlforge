@@ -10,10 +10,10 @@ readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "Apache-2.0"}
 authors = [
-    {name = "DonColon", email = ""},
+    {name = "DonColon", email = "dardan.rrafshi@gmail.com"},
 ]
 maintainers = [
-    {name = "DonColon", email = ""},
+    {name = "DonColon", email = "dardan.rrafshi@gmail.com"},
 ]
 keywords = ["xml", "parsing", "validation", "transformation", "splitting"]
 classifiers = [
