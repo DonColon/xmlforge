@@ -126,7 +126,7 @@ class XMLTransformer:
         nsmap: Dict[str, str] = {}
         if element.nsmap:
             nsmap = {k: v for k, v in element.nsmap.items() if k is not None}
-        nsmap[prefix or ''] = namespace
+        nsmap[prefix or ""] = namespace
 
         # Convert attrib to proper string dict
         attrib_dict: Dict[str, str] = {}
