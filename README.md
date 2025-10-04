@@ -9,7 +9,12 @@ A modern Python library for splitting, transforming, parsing and validating XML 
 
 - **XML Parsing**: Parse XML files and strings with a simple, intuitive API
 - **XML Splitting**: Split large XML files into smaller, manageable chunks
+  - Support for ZIP archives and directory processing
+  - Pattern-based file filtering
+  - Recursive directory traversal
 - **XML Transformation**: Transform XML using XSLT or custom transformations
+  - **Hierarchy Flattening**: Flatten nested elements with same tag names
+  - Perfect for recursive structures (e.g., Product containing Product)
 - **XML Validation**: Validate XML against XSD, DTD, and RelaxNG schemas
 - **Namespace Handling**: Easy namespace addition and removal
 - **Type Hints**: Full type annotations for better IDE support
@@ -57,8 +62,20 @@ from xmlforge import XMLSplitter
 
 splitter = XMLSplitter(target_tag="item", chunk_size=1000)
 
-# Split and write to files
+# Split single file
 splitter.split_file("large_file.xml", output_dir="chunks/")
+
+# Split all XML files in a ZIP archive
+splitter.split_file("archive.zip", output_dir="chunks/")
+
+# Split files in directory with pattern matching
+splitter = XMLSplitter(
+    target_tag="product", 
+    chunk_size=500,
+    pattern="*.xml",
+    recursive=True
+)
+splitter.split_file("data_directory/", output_dir="processed/")
 
 # Or iterate over chunks
 for chunk in splitter.split_file("large_file.xml"):
@@ -75,8 +92,20 @@ from xmlforge import XMLTransformer
 transformer = XMLTransformer(xslt_file="transform.xslt")
 result = transformer.transform_file("input.xml", output_file="output.xml")
 
-# Remove namespaces
+# Flatten nested elements with same tag names
 transformer = XMLTransformer()
+
+# Example: Flatten recursive Product structures
+# Input:  <Product><Product><Product>...</Product></Product></Product>
+# Output: <Product id="1"><Product id="2" parent_id="1"><Product id="3" parent_id="2">
+from lxml import etree
+element = etree.fromstring(nested_xml)
+flattened_elements = transformer.flatten_hierarchy(element, "Product")
+
+# Rebuild hierarchy from flattened elements
+rebuilt = transformer.rebuild_hierarchy(flattened_elements, "Product")
+
+# Remove namespaces
 element = parser.parse_string(xml_with_namespaces)
 clean_element = transformer.remove_namespace(element)
 ```
@@ -101,7 +130,7 @@ is_valid = validator.is_well_formed("document.xml")
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.9+
 - lxml >= 4.9.0
 
 ## Development

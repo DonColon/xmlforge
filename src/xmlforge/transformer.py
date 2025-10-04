@@ -2,8 +2,9 @@
 XML Transformer module for transforming XML documents.
 """
 
+import uuid
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from lxml import etree
 
@@ -43,7 +44,7 @@ class XMLTransformer:
         xslt_doc = etree.parse(str(self.xslt_file))
         self.transform = etree.XSLT(xslt_doc)
 
-    def transform_file(
+    def transform_file_with_xslt(
         self,
         input_file: Union[str, Path],
         output_file: Optional[Union[str, Path]] = None,
@@ -84,7 +85,9 @@ class XMLTransformer:
 
         return result
 
-    def transform_element(self, element: etree._Element, **params: str) -> etree._ElementTree:
+    def transform_element_with_xslt(
+        self, element: etree._Element, **params: str
+    ) -> etree._ElementTree:
         """
         Transform an XML element using the loaded XSLT stylesheet.
 
@@ -158,3 +161,113 @@ class XMLTransformer:
 
         etree.cleanup_namespaces(element)
         return element
+
+    def flatten_hierarchy(
+        self,
+        element: etree._Element,
+        target_tag: str,
+        id_attr: str = "id",
+        parent_attr: str = "parent_id",
+    ) -> List[etree._Element]:
+        """
+        Flatten nested elements only when parent and child have the same tag name.
+        This is perfect for recursive structures like Product containing Product.
+
+        Args:
+            element: The root element to process.
+            target_tag: The tag name to flatten (only same-tag nesting).
+            id_attr: Attribute name for unique IDs (default: "id").
+            parent_attr: Attribute name for parent references (default: "parent_id").
+
+        Returns:
+            List of flattened elements with same tag name.
+        """
+        result = []
+
+        def _flatten_recursive(
+            elem: etree._Element, parent_id: Optional[str] = None
+        ) -> etree._Element:
+            # Generate or use existing ID for target elements
+            if elem.tag == target_tag:
+                elem_id = elem.get(id_attr)
+                if not elem_id:
+                    elem_id = str(uuid.uuid4())[:8]
+                    elem.set(id_attr, elem_id)
+            else:
+                elem_id = None
+
+            # Create copy of current element
+            attrib_dict = {str(k): str(v) for k, v in elem.attrib.items()}
+            new_elem = etree.Element(elem.tag, attrib=attrib_dict)
+            new_elem.text = elem.text
+            new_elem.tail = elem.tail
+
+            # Set parent reference if this is a target element with a parent
+            if parent_id and elem.tag == target_tag:
+                new_elem.set(parent_attr, parent_id)
+
+            # Collect children to be flattened (same tag nesting)
+            children_to_flatten = []
+
+            # Process children
+            for child in elem:
+                if child.tag == target_tag and elem.tag == target_tag:
+                    # Same tag nesting detected - collect for flattening
+                    children_to_flatten.append(child)
+                else:
+                    # Different tag or not target tag - keep in hierarchy
+                    processed_child = _flatten_recursive(
+                        child, elem_id if elem.tag == target_tag else parent_id
+                    )
+                    new_elem.append(processed_child)
+
+            # Process children to flatten in order
+            for child in children_to_flatten:
+                flattened_child = _flatten_recursive(child, elem_id)
+                result.append(flattened_child)
+
+            return new_elem
+
+        # Process root element
+        root_copy = _flatten_recursive(element)
+
+        # Return root first, then flattened children in order
+        return [root_copy] + result
+
+    def rebuild_hierarchy(
+        self,
+        elements: List[etree._Element],
+        target_tag: str,
+        id_attr: str = "id",
+        parent_attr: str = "parent_id",
+    ) -> etree._Element:
+        """
+        Rebuild a hierarchical XML structure from a flat list of elements.
+
+        Args:
+            elements: List of XML elements to rebuild.
+            target_tag: The tag name that was flattened.
+            id_attr: Attribute name for unique IDs (default: "id").
+            parent_attr: Attribute name for parent references (default: "parent_id").
+
+        Returns:
+            The root element of the rebuilt hierarchy.
+        """
+        elem_dict = {elem.get(id_attr): elem for elem in elements if elem.get(id_attr)}
+        root = None
+
+        for elem in elements:
+            parent_id = elem.get(parent_attr)
+            if parent_id and parent_id in elem_dict:
+                parent_elem = elem_dict[parent_id]
+                parent_elem.append(elem)
+            elif not parent_id and elem.tag == target_tag:
+                # This is a top-level element
+                if root is None:
+                    root = etree.Element("root")
+                root.append(elem)
+
+        if root is None:
+            raise ValueError("No top-level element found to serve as root.")
+
+        return root
