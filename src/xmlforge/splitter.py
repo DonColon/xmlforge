@@ -183,8 +183,10 @@ class XMLSplitter:
             Root element containing all elements.
         """
         root = etree.Element("chunk")
+
         for elem in elements:
             root.append(elem)
+
         return root
 
     def _write_chunk(self, elements: list, output_dir: Union[str, Path], chunk_num: int) -> None:

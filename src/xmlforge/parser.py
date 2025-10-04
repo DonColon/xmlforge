@@ -2,10 +2,45 @@
 XML Parser module for parsing XML documents.
 """
 
+from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Any, Dict, List, Optional, Union
 
 from lxml import etree
+from xmlforge.dataframe import DataFrameLibrary, DataFrameLike, create_dataframe, get_detector
+
+
+class EntityParser(ABC):
+    """Abstract base class for entity parsers."""
+
+    def __init__(self, dataframe_library: Optional[Union[str, DataFrameLibrary]] = None) -> None:
+        """Initialize the EntityParser."""
+        super().__init__()
+
+        self.detector = get_detector()
+
+        if dataframe_library is None:
+            self.preferred_library = self.detector.get_preferred_library()
+        else:
+            if isinstance(dataframe_library, str):
+                dataframe_library = DataFrameLibrary(dataframe_library)
+
+            self.preferred_library = dataframe_library
+
+    def parse(self, chunk: etree._Element, **kwargs) -> DataFrameLike:
+        """Parse the input data and return a structured representation."""
+        entities = []
+
+        for element in chunk:
+            data = self.parse_entity(element)
+            entities.extend(data)
+
+        return create_dataframe(entities, library=self.preferred_library, **kwargs)
+
+    @abstractmethod
+    def parse_entity(self, element: etree._Element) -> List[Dict[str, Any]]:
+        """Parse a single XML element into a dictionary."""
+        pass
 
 
 class XMLParser:
@@ -24,6 +59,7 @@ class XMLParser:
             encoding: The encoding to use for parsing. Defaults to 'utf-8'.
         """
         self.encoding = encoding
+        self.parser = etree.XMLParser(encoding=self.encoding, remove_blank_text=True)
 
     def parse_file(self, filepath: Union[str, Path]) -> etree._ElementTree:
         """
@@ -40,11 +76,11 @@ class XMLParser:
             etree.XMLSyntaxError: If the XML is malformed.
         """
         filepath = Path(filepath)
+
         if not filepath.exists():
             raise FileNotFoundError(f"File not found: {filepath}")
 
-        parser = etree.XMLParser(encoding=self.encoding, remove_blank_text=True)
-        return etree.parse(str(filepath), parser)
+        return etree.parse(str(filepath), self.parser)
 
     def parse_string(self, xml_string: str) -> etree._Element:
         """
@@ -59,8 +95,7 @@ class XMLParser:
         Raises:
             etree.XMLSyntaxError: If the XML is malformed.
         """
-        parser = etree.XMLParser(encoding=self.encoding, remove_blank_text=True)
-        return etree.fromstring(xml_string.encode(self.encoding), parser)
+        return etree.fromstring(xml_string.encode(self.encoding), self.parser)
 
     def to_dict(self, element: etree._Element) -> Dict[str, Any]:
         """
@@ -90,6 +125,7 @@ class XMLParser:
             if tag in result:
                 if not isinstance(result[tag], list):
                     result[tag] = [result[tag]]
+
                 result[tag].append(child_dict)
             else:
                 result[tag] = child_dict
